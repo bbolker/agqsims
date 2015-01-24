@@ -1,2 +1,3 @@
-# AGQsims
-code for simulations of adaptive Gaussian Hermite quadrature performance
+# agqsims
+
+Code for simulations of adaptive Gaussian Hermite quadrature performance
