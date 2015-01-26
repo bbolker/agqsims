@@ -1,10 +1,6 @@
-main_pkgs <- c("lme4","glmmML")
-aux_pkgs <- c("reshape2","ggplot2","plyr","abind")
-invisible(sapply(c(main_pkgs,aux_pkgs),library,character.only=TRUE))
-
-## simulation code, based approximately on Culcita data set
-## not longitudinal; approximates toenail if n.ttt=2
-## simulates covariate x, but not currently used
+##' simulation code, based approximately on Culcita data set
+##' not longitudinal; approximates toenail if n.ttt=2
+##' simulates covariate x, but not currently used
 
 ##' @param n.blocks number of levels of RE grouping variable
 ##' @param n.ttt number of levels of (categorical) fixed effect
@@ -14,6 +10,7 @@ invisible(sapply(c(main_pkgs,aux_pkgs),library,character.only=TRUE))
 ##' @param beta fixed-effects parameter vector
 ##' @param theta RE parameter vector (Cholesky factor)
 ##' @param seed random-number seed
+##' @export
 simfun_culc <- function(n.blocks=10,
                         n.ttt=4,
                         n.rep=3,N.binom=1,
@@ -45,7 +42,13 @@ simfun_culc <- function(n.blocks=10,
     return(dd)
 }
 
-##' @param fit original fitted model
+##' Wald variance-covariance matrix of lme4 RE parameters
+##'
+##' @param fit an lme4 fit
+##'
+##' @details by brute force, finds the Wald var-cov matrix
+##' of lme4 RE parameters (on the 'user', i.e. sd-corr-sigma scale)
+##' @export
 vcov.VarCorr.merMod <- function(fit,...) {
     ## unfortunately, since we need access to the original fit,
     ## we can't *actually* make this a method that applies to
@@ -55,7 +58,6 @@ vcov.VarCorr.merMod <- function(fit,...) {
         warning("refitting model with ML")
         fit <- refitML(fit)
     }
-    if (!require("numDeriv")) stop("numDeriv package required")
     useSc <- attr(object,"useSc")
     dd <- lme4:::devfun2(fit,useSc=useSc,signames=FALSE)
     vdd <- as.data.frame(object,order="lower.tri")
@@ -75,119 +77,162 @@ vcov.VarCorr.merMod <- function(fit,...) {
     return(vv2)
 }
 
-##' @param fitted fitted GLMM
+## OBSOLETE
 sumfun <- function(fitted) {
-    if (class(fitted)=="glmerMod") {
-        c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))),
-          logLik=logLik(fitted))
-    } else if (class(fitted)=="glmmML") {
-        c(fitted$coefficients,
-          REvar=fitted$sigma,logLik=-fitted$deviance/2)
-    }
+  if (class(fitted)=="glmerMod") {
+    c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))),
+      logLik=logLik(fitted))
+  } else if (class(fitted)=="glmmML") {
+    c(fitted$coefficients,
+      REvar=fitted$sigma,logLik=-fitted$deviance/2)
+  }  else  {
+    c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]),
+      logLik <- NA)
+  }
 }
 
 
-##' like sumfun, but includes standard errors as well
-##' @
+##' computes summary statistics for
+##' 
+##' @param fitted a fitted GLMM model (glmer, glmmML, or glmmPQL)
+##' @param truevals optional vector of true parameter values (beta, RE sd)
+##' @export
 sumfun2 <- function(fitted,truevals=NULL) {
-    if (class(fitted)=="glmerMod") {
-        pars <- c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))))
-        ss <- summary(fitted)
-        ## if (is.function(family)) { ## HACK
-        ## family <- fitted@resp$family$family
-        ## }
-        stders <- c(coef(ss)[,"Std. Error"],
-                    sqrt(diag(vcov.VarCorr.merMod(fitted))))
-        logLik <- logLik(fitted)
-    } else if (class(fitted)=="glmmML") {
-        pars <- c(fitted$coefficients,
-                  REvar=fitted$sigma)
-        stders <- c(rep(fitted$coef.sd,
-                        length.out=length(fitted$coefficients)),
-                    ## rep() is minor hack for cases where fitted$coef.sd
-                    ##   is NA ...
-                    fitted$sigma.sd)
-        logLik <- -fitted$deviance/2
-    }
-    r <- cbind(c(pars,logLik=logLik),c(stders,NA))
-    colnames(r) <- c("est","se")
-    if (!is.null(truevals)) {
-        r <- cbind(r,c(truevals,NA))
-        colnames(r) <- c("est","se","true")
-    }
-    
-    return(r)
+  if (is(fitted,"glmerMod")) {
+    pars <- c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))))
+    ss <- summary(fitted)
+    ## if (is.function(family)) { ## HACK
+    ## family <- fitted@resp$family$family
+    ## }
+    stders <- c(coef(ss)[,"Std. Error"],
+                sqrt(diag(vcov.VarCorr.merMod(fitted))))
+    logLik <- logLik(fitted)
+  } else if (is(fitted,"glmmML")) {
+    pars <- c(fitted$coefficients,
+              REvar=fitted$sigma)
+    stders <- c(rep(fitted$coef.sd,
+                    length.out=length(fitted$coefficients)),
+                ## rep() is minor hack for cases where fitted$coef.sd
+                ##   is NA ...
+                fitted$sigma.sd)
+    logLik <- -fitted$deviance/2
+  } else if (is(fitted,"glmmPQL"))   {
+      pars <- c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]))  
+      stders <- c(summary(fitted)$tTable[,"Std.Error"],
+                  ## transform Wald SD of log-sd to Wald SD of sd ...
+                  sqrt(fitted$apVar[1,1])*pars["REvar"])
+      logLik <- NA  ## not available for PQL fit
+  }
+  r <- cbind(c(pars,logLik=logLik),c(stders,NA))
+  colnames(r) <- c("est","se")
+  if (!is.null(truevals)) {
+    r <- cbind(r,c(truevals,NA))
+    colnames(r) <- c("est","se","true")
+  }
+  return(r)
 }
 
 
 ################# fit_lme4 ########
 
+sseq <- function(n) {
+    if (n==0) 0 else 1:n
+}
+
+##' fit GLMM for varying values
+##'
+##' @param data
+##' @param formula model formula (fixed-effect or full, depending on pkg)
+##' @param pkg package to use for fitting
+##' @param cluster cluster variable specification (for glmmPQL or glmmML)
+##' @param maxAGQ maximum AGQ value (0=PQL)
+##' @param AGQvec vector of specified AGQ orders
+##' @param verbose print verbose output
+##' @param truevals vector of true parameter values
+##'
+##' @export
 fit_gen <- function(data,formula,family,
                     cluster=NULL,
-                    pkg=c("lme4","glmmML"),
-                    maxAGQ=100,
-                    AGQvec=1:maxAGQ,
+                    pkg=c("lme4","glmmML","glmmPQL"),
+                    maxAGQ=10,
+                    AGQvec=sseq(maxAGQ),
                     verbose=TRUE,
                     truevals = NULL) {
-    pkg <- match.arg(pkg)
-    if (pkg=="glmmML") {
-        ## silly hacks required to deal with the way that
-        ## glmmML evaluates its arguments
-        assign("data",data,envir=environment(formula))
-        assign("formula",formula,envir=environment(formula))
-        assign("cluster",cluster,envir=environment(formula))
-        fit0 <- glmmML(formula,
-                       family= family,
-                       data = data,
-                       cluster=eval(parse(text=paste0("data$",
-                                          as.name(cluster)))),
-                       method="ghq" ,n.points = 1)
-    } else {
-### ?? why necessary ???
-        ## assign("data",data,envir=environment(formula))
-        ## assign("formula",formula,envir=environment(formula))
-        fit0 <- glmer(formula,
-                      family= family, data = data,
-                      nAGQ = 1)
-        ## hack for vcov.VarCorr.merMod
-        fit0@call$family <- family
-        fit0@call$data <- data
-    }
-    fit0_sum <- sumfun2(fit0,truevals=truevals)
-    nvar <- nrow(fit0_sum)
-    res1 <- array(NA,dim=c(length(AGQvec),nvar+2,ncol(fit0_sum)),
-                  dimnames=list(AGQ=AGQvec,
-                  var=c(rownames(fit0_sum),
-                  c("t.user","t.elapsed")),
-                  type=colnames(fit0_sum)))
-    for(j in seq_along(AGQvec)) {
-        if (verbose) cat(j,AGQvec[j],"\n")
-        if (pkg=="lme4") {
-            st <- system.time(fit1 <-
-                try(glmer(formula,
-                          family= family, data = data,
-                          nAGQ = AGQvec[j])))
-            fit1@call$family <- family  ## hack (see above)
-            fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
-            fit1@call$data <- data
-        } else {
-            st <- system.time(fit1 <-
-                try(glmmML(formula,
-                           family= family, data = data,
-                           cluster=eval(parse(text=
-                                                  paste0("data$",as.name(cluster)))),                                   method="ghq" ,n.points = AGQvec[j])))
-        }
-        ## slightly hacky way to avoid NA Hessian issues
-        if (is(fit1,"try-error") || any(is.na(fit1@optinfo$derivs$Hessian))) {
-            res1[j,,] <- NA                                         
-        } else {
-            ss2 <- sumfun2(fit1,truevals=truevals)
-            st2 <- matrix(c(st[c(1,3)],rep(NA,2*(ncol(ss2)-1))),
-                          nrow=2)
-            res1[j,,] <- rbind(ss2,st2)
-        }
-    }
-    return(res1)
+  pkg <- match.arg(pkg)
+  if (pkg=="glmmML") {
+    ## silly hacks required to deal with the way that
+    ## glmmML evaluates its arguments
+    assign("data",data,envir=environment(formula))
+    assign("formula",formula,envir=environment(formula))
+    assign("cluster",cluster,envir=environment(formula))
+    fit0 <- glmmML(formula,
+                   family= family,
+                   data = data,
+                   cluster=eval(parse(text=paste0("data$",
+                                                  as.name(cluster)))),
+                   method="ghq" ,n.points = 1)
+  } else if (pkg=="lme4") {
+    ### ?? why necessary ???
+    ## assign("data",data,envir=environment(formula))
+    ## assign("formula",formula,envir=environment(formula))
+    fit0 <- glmer(formula,
+                  family= family, data = data,
+                  nAGQ = 1)
+    ## hack for vcov.VarCorr.merMod
+    fit0@call$family <- family
+    fit0@call$data <- data
+  } else {
+    fit0<- glmmPQL(formula,
+                   family=family,
+                   data=data,
+                   random=formula(paste0("~1|",as.name(cluster))))
+  }
+  
+  fit0_sum <- sumfun2(fit0,truevals=truevals)
+  nvar <- nrow(fit0_sum)
+  res1 <- array(NA,dim=c(length(AGQvec),nvar+2,ncol(fit0_sum)),
+                dimnames=list(AGQ=AGQvec,
+                              var=c(rownames(fit0_sum),
+                                    c("t.user","t.elapsed")),
+                              type=colnames(fit0_sum)))
+  for(j in seq_along(AGQvec)) {
+      if (verbose) cat(j,AGQvec[j],"\n")
+      if (pkg=="lme4") {
+          st <- system.time(fit1 <-
+              try(glmer(formula,
+                        family= family, data = data,
+                        nAGQ = AGQvec[j])))
+          fit1@call$family <- family  ## hack (see above)
+          fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
+          fit1@call$data <- data
+      } else if (pkg=="glmmML"){
+          st <- system.time(fit1 <-
+              try(glmmML(formula,
+                         family= family, data = data,
+                         cluster=eval(parse(text=
+                                                paste0("data$",as.name(cluster)))), 
+                         method="ghq" ,n.points = AGQvec[j])))
+      } else  {
+          if (AGQvec[j]>0) stop("shouldn't be trying glmmPQL with AGQ>0")
+          st <- system.time(fit1 <-
+              try(glmmPQL(formula,
+                          family=family,
+                          data=data,
+                          random=as.formula(paste("~1|",as.name(cluster))))))
+      }
+    
+      ## slightly hacky way to avoid NA Hessian issues
+      if (is(fit1,"try-error") || 
+          (pkg=="lme4" && any(is.na(fit1@optinfo$derivs$Hessian)))) {
+          res1[j,,] <- NA                                         
+      } else {
+          ss2 <- sumfun2(fit1,truevals=truevals)
+          st2 <- matrix(c(st[c(1,3)],rep(NA,2*(ncol(ss2)-1))),
+                        nrow=2)
+          res1[j,,] <- rbind(ss2,st2)
+      }
+  }
+  return(res1)
 }
 
 
@@ -237,8 +282,6 @@ standardize_all <- function(d,v,
                             "logLik","t.user","t.elapsed"),
                             std=c("max","se","true"),
                             ret=c("rmse","bias","var")) {
-    require("plyr")
-    require("reshape2")
     std <- match.arg(std)
     ret <- match.arg(ret)
     d2 <- d[ , -which(dimnames(d)$var %in% skipcols), ]
@@ -308,8 +351,7 @@ rmsetab_to_combdf <- function(S,v,std=NULL,ret="rmse",dims=2:3,
 standardize_maxval <- function(d,v,
                                skipcols=c("(Intercept)",
                                "logLik","t.user","t.elapsed")) {
-    require("plyr")
-    require("reshape2")
+
     d2 <- d[, -which(colnames(d) %in% skipcols),
             type="est"]
     mel_d <- melt(d2)
@@ -328,8 +370,7 @@ standardize_maxval <- function(d,v,
 
 standardize_maxsd <- function(d,v,skipcols=c("(Intercept)",
                                   "logLik","t.user","t.elapsed")) {
-    require("plyr")
-    require("reshape2")
+
     d2 <- d[, -which(colnames(d) %in% skipcols)]
     mel_d <- dcast(melt(d2),AGQ+var~type)
     mel2_d <- transform(mel_d,

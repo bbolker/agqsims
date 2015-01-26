@@ -1,0 +1,12 @@
+Package: agqsims
+Type: Package
+Title: adaptive Gauss-Hermite quadrature simulations
+Version: 0.0.1
+Date: 2015-01-24
+Author: Ben Bolker, Keya Biswas
+Maintainer: Ben Bolker <bolker@mcmaster.ca>
+Description: Code for running AGHQ sims
+Depends: lme4, glmmML, reshape2, ggplot2, plyr, abind, numDeriv
+VignetteBuilder: knitr
+License: GPL
+LazyLoad: yes

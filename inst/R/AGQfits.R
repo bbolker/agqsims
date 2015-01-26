@@ -1,19 +1,5 @@
 ######### Generic data analysis  ###############
 
-main_pkgs <- c("lme4","glmmML")
-aux_pkgs <- c("reshape2","ggplot2","plyr")
-invisible(sapply(c(main_pkgs,aux_pkgs),library,character.only=TRUE))
-
-## BMB: you should always avoid using absolute paths in your
-##      code; instead, set your working directory to
-## setwd("C:/Users/Keya/Dropbox")
-## read in utility functions
-
-setwd("C:/Users/Keya/Dropbox/latest R code")
-
-
-source("AGQfuns.R")
-
 ################## Toenail data ##############
 
 ## load data
@@ -36,17 +22,11 @@ toenail_lme4 <- fit_gen(data=toenail,formula=outcome~treatment+visit+(1|ID),
                         pkg="lme4",
                         agqvec=agqvec)
 
-
-
-
-
 ## input names of csv files and generate the same output
 ## toenail_SAS <- 
 
 
 ########### Culcita data #############
-
-load("C:/Users/Keya/Downloads/culcita.RData") 
 
 culcita_glmmML <- fit_gen(data=culcita_dat,formula=predation~ttt,
                           cluster="block",family="binomial",

@@ -1,13 +1,6 @@
 ######### Generic data analysis  ###############
 
-main_pkgs <- c("lme4","glmmML")
-aux_pkgs <- c("reshape2","ggplot2","plyr")
-invisible(sapply(c(main_pkgs,aux_pkgs),library,character.only=TRUE))
-
-setwd("C:/Users/Keya/Dropbox/latest R code")
-
 load("AGQfits.Rdata")
-source("AGQfuns.R")
 ########### Graph 1 ############
 
 ## should restrict toenail_GLMM to AGQ<75;
