@@ -3,4 +3,5 @@
 S3method(vcov,VarCorr.merMod)
 export(fit_gen)
 export(simfun_culc)
+export(standardize_all)
 export(sumfun2)

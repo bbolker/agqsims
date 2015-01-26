@@ -2,6 +2,7 @@
 % Please edit documentation in R/AGQfuns.R
 \name{standardize_all}
 \alias{standardize_all}
+\title{center and scale by 'correct' answer (max AGQ)}
 \usage{
 standardize_all(d, v, skipcols = c("(Intercept)", "logLik", "t.user",
   "t.elapsed"), std = c("max", "se", "true"), ret = c("rmse", "bias",
@@ -17,5 +18,8 @@ standardize_all(d, v, skipcols = c("(Intercept)", "logLik", "t.user",
 \item{std}{how to standardize}
 
 \item{ret}{what summary to return}
+}
+\description{
+center and scale by 'correct' answer (max AGQ)
 }
 

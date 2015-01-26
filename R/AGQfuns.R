@@ -263,20 +263,13 @@ graph_SAS <- function(d) {
     
 }
 
-########### Graph 2############
-##  center and scale by 'correct' answer (max AGQ)
-
-## should replace standardize_max, standardize_sd ...
+##'  center and scale by 'correct' answer (max AGQ)
 ##' @param d a 3-dimensional numeric array: { AGQ * var * type }
 ##' @param v name of random-effects variance
 ##' @param skipcols variables to skip
 ##' @param std how to standardize
 ##' @param ret what summary to return
-## FIXME: should split standardization -- what to subtract vs
-##  what to divide by
-
-## want to be able to use this for real data *or* sim data,
-
+##' @export
 standardize_all <- function(d,v,
                             skipcols=c("(Intercept)",
                             "logLik","t.user","t.elapsed"),
@@ -301,6 +294,10 @@ standardize_all <- function(d,v,
     mel3_sum_d <- ddply(mel3_d,c("varcat","AGQ"),sumf2)
     return(mel3_sum_d)
 }
+## FIXME: should split standardization -- what to subtract vs
+##  what to divide by
+## want to be able to use this for real data *or* sim data,
+
 
 ##' compute FE and RE summaries
 ##' @param x a 3-dimensional numeric array: { AGQ * vars * type }
