@@ -159,6 +159,9 @@ fit_gen <- function(data,formula,family,
                     verbose=TRUE,
                     truevals = NULL) {
   pkg <- match.arg(pkg)
+
+  ## Preliminary fit to get baseline shape of results
+  ## could do better by figuring out what sumfun2() SHOULD return
   if (pkg=="glmmML") {
     ## silly hacks required to deal with the way that
     ## glmmML evaluates its arguments

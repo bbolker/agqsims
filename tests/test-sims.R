@@ -1,6 +1,7 @@
 library("agqsims")
 set.seed(101)
 dd <- simfun_culc(N.binom=1)
+## default (pkg="lme4")
 f0 <- fit_gen(data=dd,formula= y~ttt+(1|block),
         family="binomial",
         maxAGQ=3)
