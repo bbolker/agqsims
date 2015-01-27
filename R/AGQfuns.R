@@ -121,10 +121,14 @@ sumfun2 <- function(fitted,truevals=NULL) {
                 fitted$sigma.sd)
     logLik <- -fitted$deviance/2
   } else if (is(fitted,"glmmPQL"))   {
-      pars <- c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]))  
+      pars <- c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]))
+      if (is.character(av <- fitted$apVar)) {
+          REsd <- NA  ## "non-positive definite  ..."
+          ## transform Wald SD of log-sd to Wald SD of sd ...
+      } else REsd <- sqrt(av[1,1])*pars["REvar"]
       stders <- c(summary(fitted)$tTable[,"Std.Error"],
-                  ## transform Wald SD of log-sd to Wald SD of sd ...
-                  sqrt(fitted$apVar[1,1])*pars["REvar"])
+                  REsd 
+                  )
       logLik <- NA  ## not available for PQL fit
   }
   r <- cbind(c(pars,logLik=logLik),c(stders,NA))
