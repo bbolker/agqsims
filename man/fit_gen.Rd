@@ -9,9 +9,11 @@ fit_gen(data, formula, family, cluster = NULL, pkg = c("lme4", "glmmML",
   truevals = NULL)
 }
 \arguments{
-\item{data}{}
+\item{data}{data}
 
 \item{formula}{model formula (fixed-effect or full, depending on pkg)}
+
+\item{family}{model family}
 
 \item{cluster}{cluster variable specification (for glmmPQL or glmmML)}
 

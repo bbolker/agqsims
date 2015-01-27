@@ -6,7 +6,9 @@ Date: 2015-01-24
 Author: Ben Bolker, Keya Biswas
 Maintainer: Ben Bolker <bolker@mcmaster.ca>
 Description: Code for running AGHQ sims
-Depends: lme4, glmmML, reshape2, ggplot2, plyr, abind, numDeriv
+Depends: lme4, glmmML
+Imports: MASS, ggplot2, numDeriv, abind, reshape2, plyr
+Suggests: knitr
 VignetteBuilder: knitr
 License: GPL
 LazyLoad: yes

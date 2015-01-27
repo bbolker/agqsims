@@ -9,6 +9,16 @@ rmsetab_to_combdf(S, v, std = NULL, ret = "rmse", dims = 2:3,
 }
 \arguments{
 \item{S}{a 4-dimensional numeric array: { sim * AGQ * vars * type }}
+
+\item{v}{""}
+
+\item{std}{""}
+
+\item{ret}{""}
+
+\item{dims}{""}
+
+\item{calc.range}{""}
 }
 \description{
 compute RMSE and return a reduced table

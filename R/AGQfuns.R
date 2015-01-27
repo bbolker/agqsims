@@ -45,10 +45,14 @@ simfun_culc <- function(n.blocks=10,
 ##' Wald variance-covariance matrix of lme4 RE parameters
 ##'
 ##' @param fit an lme4 fit
-##'
+##' @param \dots required for method compatibility
 ##' @details by brute force, finds the Wald var-cov matrix
 ##' of lme4 RE parameters (on the 'user', i.e. sd-corr-sigma scale)
 ##' @export
+##' @importFrom numDeriv hessian
+##' @importFrom lme4 refitML
+##' @importFrom lme4 isREML
+##' @importFrom lme4 isGLMM
 vcov.VarCorr.merMod <- function(fit,...) {
     ## unfortunately, since we need access to the original fit,
     ## we can't *actually* make this a method that applies to
@@ -141,8 +145,9 @@ sseq <- function(n) {
 
 ##' fit GLMM for varying values
 ##'
-##' @param data
+##' @param data data
 ##' @param formula model formula (fixed-effect or full, depending on pkg)
+##' @param family model family
 ##' @param pkg package to use for fitting
 ##' @param cluster cluster variable specification (for glmmPQL or glmmML)
 ##' @param maxAGQ maximum AGQ value (0=PQL)
@@ -151,6 +156,7 @@ sseq <- function(n) {
 ##' @param truevals vector of true parameter values
 ##'
 ##' @export
+##' @importFrom MASS glmmPQL
 fit_gen <- function(data,formula,family,
                     cluster=NULL,
                     pkg=c("lme4","glmmML","glmmPQL"),
@@ -243,6 +249,12 @@ fit_gen <- function(data,formula,family,
 
 ########### Graph 1 ############
 
+##' @importFrom reshape2 melt
+##' @importFrom ggplot2 ggplot
+##' @importFrom ggplot2 geom_point
+##' @importFrom ggplot2 geom_line
+##' @importFrom ggplot2 facet_wrap
+##' @importFrom ggplot2 labs
 graph1 <- function( d) {
     t_d <- t(d[,-which(colnames(d) %in% c("logLik","t.user")),
                type="est"])
@@ -323,7 +335,13 @@ sim_to_rmsetab <- function(x,v,std=NULL,ret="rmse") {
 }
 
 ##' compute RMSE and return a reduced table
+##' @importFrom abind abind
 ##' @param S a 4-dimensional numeric array: { sim * AGQ * vars * type }
+##' @param v ""
+##' @param std ""
+##' @param ret ""
+##' @param dims ""
+##' @param calc.range ""
 rmsetab_to_combdf <- function(S,v,std=NULL,ret="rmse",dims=2:3,
                               calc.range=TRUE) {
     rmsetab <- aaply(S,1,sim_to_rmsetab,v=v,std=std,ret=ret)
