@@ -9,7 +9,7 @@
 \arguments{
 \item{fit}{an lme4 fit}
 
-\item{dots}{required for method compatibility}
+\item{\dots}{required for method compatibility}
 }
 \description{
 Wald variance-covariance matrix of lme4 RE parameters
