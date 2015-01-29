@@ -81,63 +81,48 @@ vcov.VarCorr.merMod <- function(fit,...) {
     return(vv2)
 }
 
-## OBSOLETE
-sumfun <- function(fitted) {
-  if (class(fitted)=="glmerMod") {
-    c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))),
-      logLik=logLik(fitted))
-  } else if (class(fitted)=="glmmML") {
-    c(fitted$coefficients,
-      REvar=fitted$sigma,logLik=-fitted$deviance/2)
-  }  else  {
-    c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]),
-      logLik <- NA)
-  }
-}
-
-
-##' computes summary statistics for
+##' computes summary statistics for ...
 ##' 
 ##' @param fitted a fitted GLMM model (glmer, glmmML, or glmmPQL)
 ##' @param truevals optional vector of true parameter values (beta, RE sd)
 ##' @export
-sumfun2 <- function(fitted,truevals=NULL) {
-  if (is(fitted,"glmerMod")) {
-    pars <- c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))))
-    ss <- summary(fitted)
-    ## if (is.function(family)) { ## HACK
-    ## family <- fitted@resp$family$family
-    ## }
-    stders <- c(coef(ss)[,"Std. Error"],
-                sqrt(diag(vcov.VarCorr.merMod(fitted))))
-    logLik <- logLik(fitted)
-  } else if (is(fitted,"glmmML")) {
-    pars <- c(fitted$coefficients,
-              REvar=fitted$sigma)
-    stders <- c(rep(fitted$coef.sd,
-                    length.out=length(fitted$coefficients)),
-                ## rep() is minor hack for cases where fitted$coef.sd
-                ##   is NA ...
-                fitted$sigma.sd)
-    logLik <- -fitted$deviance/2
-  } else if (is(fitted,"glmmPQL"))   {
-      pars <- c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]))
-      if (is.character(av <- fitted$apVar)) {
-          REsd <- NA  ## "non-positive definite  ..."
-          ## transform Wald SD of log-sd to Wald SD of sd ...
-      } else REsd <- sqrt(av[1,1])*pars["REvar"]
-      stders <- c(summary(fitted)$tTable[,"Std.Error"],
-                  REsd 
-                  )
-      logLik <- NA  ## not available for PQL fit
-  }
-  r <- cbind(c(pars,logLik=logLik),c(stders,NA))
-  colnames(r) <- c("est","se")
-  if (!is.null(truevals)) {
-    r <- cbind(r,c(truevals,NA))
-    colnames(r) <- c("est","se","true")
-  }
-  return(r)
+sumfun2 <- function(fitted,truevals=NULL,npars) {
+    if (is(fitted,"glmerMod")) {
+        pars <- c(fixef(fitted),REvar=sqrt(unlist(VarCorr(fitted))))
+        ss <- summary(fitted)
+        ## if (is.function(family)) { ## HACK
+        ## family <- fitted@resp$family$family
+        ## }
+        stders <- c(coef(ss)[,"Std. Error"],
+                    sqrt(diag(vcov.VarCorr.merMod(fitted))))
+        logLik <- logLik(fitted)
+    } else if (is(fitted,"glmmML")) {
+        pars <- c(fitted$coefficients,
+                  REvar=fitted$sigma)
+        stders <- c(rep(fitted$coef.sd,
+                        length.out=length(fitted$coefficients)),
+                    ## rep() is minor hack for cases where fitted$coef.sd
+                    ##   is NA ...
+                    fitted$sigma.sd)
+        logLik <- -fitted$deviance/2
+    } else if (is(fitted,"glmmPQL"))   {
+        pars <- c(fixef(fitted),REvar=as.numeric(VarCorr(fitted)[1,2]))
+        if (is.character(av <- fitted$apVar)) {
+            REsd <- NA  ## "non-positive definite  ..."
+            ## transform Wald SD of log-sd to Wald SD of sd ...
+        } else REsd <- sqrt(av[1,1])*pars["REvar"]
+        stders <- c(summary(fitted)$tTable[,"Std.Error"],
+                    REsd 
+                    )
+        logLik <- NA  ## not available for PQL fit
+    }
+    r <- cbind(c(pars,logLik=logLik),c(stders,NA))
+    colnames(r) <- c("est","se")
+    if (!is.null(truevals)) {
+        r <- cbind(r,c(truevals,NA))
+        colnames(r) <- c("est","se","true")
+    }
+    return(r)
 }
 
 
@@ -158,7 +143,8 @@ sseq <- function(n) {
 ##' @param AGQvec vector of specified AGQ orders
 ##' @param verbose print verbose output
 ##' @param truevals vector of true parameter values
-##'
+##' @param nvar total number of estimated parameters (fixed ef + RE vcov)
+##' @param nsumcol number of columns of summary
 ##' @export
 ##' @importFrom MASS glmmPQL
 fit_gen <- function(data,formula,family,
@@ -167,85 +153,93 @@ fit_gen <- function(data,formula,family,
                     maxAGQ=10,
                     AGQvec=sseq(maxAGQ),
                     verbose=TRUE,
-                    truevals = NULL) {
-  pkg <- match.arg(pkg)
+                    truevals = NULL,
+                    nvar = NULL,
+                    nsumcol = NULL) {
+    pkg <- match.arg(pkg)
 
-  ## Preliminary fit to get baseline shape of results
-  ## could do better by figuring out what sumfun2() SHOULD return
-  if (pkg=="glmmML") {
-    ## silly hacks required to deal with the way that
-    ## glmmML evaluates its arguments
-    assign("data",data,envir=environment(formula))
-    assign("formula",formula,envir=environment(formula))
-    assign("cluster",cluster,envir=environment(formula))
-    fit0 <- glmmML(formula,
-                   family= family,
-                   data = data,
-                   cluster=eval(parse(text=paste0("data$",
-                                                  as.name(cluster)))),
-                   method="ghq" ,n.points = 1)
-  } else if (pkg=="lme4") {
-    ### ?? why necessary ???
-    ## assign("data",data,envir=environment(formula))
-    ## assign("formula",formula,envir=environment(formula))
-    fit0 <- glmer(formula,
-                  family= family, data = data,
-                  nAGQ = 1)
-    ## hack for vcov.VarCorr.merMod
-    fit0@call$family <- family
-    fit0@call$data <- data
-  } else {
-    fit0<- glmmPQL(formula,
-                   family=family,
-                   data=data,
-                   random=formula(paste0("~1|",as.name(cluster))))
-  }
-  
-  fit0_sum <- sumfun2(fit0,truevals=truevals)
-  nvar <- nrow(fit0_sum)
-  res1 <- array(NA,dim=c(length(AGQvec),nvar+2,ncol(fit0_sum)),
-                dimnames=list(AGQ=AGQvec,
-                              var=c(rownames(fit0_sum),
-                                    c("t.user","t.elapsed")),
-                              type=colnames(fit0_sum)))
-  for(j in seq_along(AGQvec)) {
-      if (verbose) cat(j,AGQvec[j],"\n")
-      if (pkg=="lme4") {
-          st <- system.time(fit1 <-
-              try(glmer(formula,
-                        family= family, data = data,
-                        nAGQ = AGQvec[j])))
-          fit1@call$family <- family  ## hack (see above)
-          fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
-          fit1@call$data <- data
-      } else if (pkg=="glmmML"){
-          st <- system.time(fit1 <-
-              try(glmmML(formula,
-                         family= family, data = data,
-                         cluster=eval(parse(text=
-                                                paste0("data$",as.name(cluster)))), 
-                         method="ghq" ,n.points = AGQvec[j])))
-      } else  {
-          if (AGQvec[j]>0) stop("shouldn't be trying glmmPQL with AGQ>0")
-          st <- system.time(fit1 <-
-              try(glmmPQL(formula,
-                          family=family,
-                          data=data,
-                          random=as.formula(paste("~1|",as.name(cluster))))))
-      }
-    
-      ## slightly hacky way to avoid NA Hessian issues
-      if (is(fit1,"try-error") || 
-          (pkg=="lme4" && any(is.na(fit1@optinfo$derivs$Hessian)))) {
-          res1[j,,] <- NA                                         
-      } else {
-          ss2 <- sumfun2(fit1,truevals=truevals)
-          st2 <- matrix(c(st[c(1,3)],rep(NA,2*(ncol(ss2)-1))),
-                        nrow=2)
-          res1[j,,] <- rbind(ss2,st2)
-      }
-  }
-  return(res1)
+    if (is.null(nsumcol)) nsumcol <- if (is.null(truevals)) 2 else 3
+    if (is.null(nvar)) {
+        ## Preliminary fit to get baseline shape of results
+        ## could do better by figuring out what sumfun2() SHOULD return
+        ## especially for glmmPQL, which only gets run once anyway!
+        if (pkg=="glmmML") {
+            ## silly hacks required to deal with the way that
+            ## glmmML evaluates its arguments
+            assign("data",data,envir=environment(formula))
+            assign("formula",formula,envir=environment(formula))
+            assign("cluster",cluster,envir=environment(formula))
+            fit0 <- glmmML(formula,
+                           family= family,
+                           data = data,
+                           cluster=eval(parse(text=paste0("data$",
+                                              as.name(cluster)))),
+                           method="ghq" ,n.points = 1)
+        } else if (pkg=="lme4") {
+            fit0 <- glmer(formula,
+                          family= family, data = data,
+                          nAGQ = 1)
+            ## hack for vcov.VarCorr.merMod
+            fit0@call$family <- family
+            fit0@call$data <- data
+        } else {
+            fit0 <- try(glmmPQL(formula,
+                                family=family,
+                                data=data,
+                                random=formula(paste0("~1|",as.name(cluster)))))
+        }
+        fit0_sum <- sumfun2(fit0,truevals=truevals)
+        nvar <- nrow(fit0_sum)
+    }
+    res1 <- array(NA,dim=c(length(AGQvec),
+                     nvar+2,
+                     nsumcol))
+    for(j in seq_along(AGQvec)) {
+        if (verbose) cat(j,AGQvec[j],"\n")
+        if (pkg=="lme4") {
+            st <- system.time(fit1 <-
+                try(glmer(formula,
+                          family= family, data = data,
+                          nAGQ = AGQvec[j])))
+            fit1@call$family <- family  ## hack (see above)
+            fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
+            fit1@call$data <- data
+        } else if (pkg=="glmmML"){
+            st <- system.time(fit1 <-
+                try(glmmML(formula,
+                           family= family, data = data,
+                           cluster=eval(parse(text=
+                                                  paste0("data$",as.name(cluster)))), 
+                           method="ghq" ,n.points = AGQvec[j])))
+        } else  {
+            if (AGQvec[j]>0) stop("shouldn't be trying glmmPQL with AGQ>0")
+            st <- system.time(fit1 <-
+                try(glmmPQL(formula,
+                            family=family,
+                            data=data,
+                            random=as.formula(paste("~1|",as.name(cluster))))))
+        }
+
+        ## slightly hacky way to avoid NA Hessian issues
+        if (is(fit1,"try-error") || 
+            (pkg=="lme4" && any(is.na(fit1@optinfo$derivs$Hessian)))) {
+            res1[j,,] <- NA                                         
+        } else {
+            ss2 <- sumfun2(fit1,truevals=truevals)
+            st2 <- matrix(c(st[c(1,3)],rep(NA,2*(ncol(ss2)-1))),
+                          nrow=2)
+            if (is.null(dimnames(res1))) {
+                dimnames(res1) <- list(AGQ=AGQvec,
+                                       var=c(rownames(ss2),
+                                       c("t.user","t.elapsed")),
+                                       type=colnames(ss2))
+            }
+
+            res1[j,,] <- rbind(ss2,st2)
+
+        }
+    }
+    return(res1)
 }
 
 
@@ -405,4 +399,5 @@ standardize_maxsd <- function(d,v,skipcols=c("(Intercept)",
                         summarise, rmse_stdvalue_SE=sqrt(mean(stdvalue^2)))
     return(mel3_sum_d)
 }
+
 
