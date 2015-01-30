@@ -143,7 +143,8 @@ sseq <- function(n) {
 ##' @param AGQvec vector of specified AGQ orders
 ##' @param verbose print verbose output
 ##' @param truevals vector of true parameter values
-##' @param nvar total number of estimated parameters (fixed ef + RE vcov)
+##' @param nvar total number of estimated parameters +1
+##' (fixed eff + RE vcov + logLik)
 ##' @param nsumcol number of columns of summary
 ##' @export
 ##' @importFrom MASS glmmPQL
@@ -186,13 +187,14 @@ fit_gen <- function(data,formula,family,
             fit0 <- try(glmmPQL(formula,
                                 family=family,
                                 data=data,
-                                random=formula(paste0("~1|",as.name(cluster)))))
+                                random=formula(paste0("~1|",as.name(cluster))),
+                                verbose=FALSE),silent=TRUE)
         }
         fit0_sum <- sumfun2(fit0,truevals=truevals)
         nvar <- nrow(fit0_sum)
     }
     res1 <- array(NA,dim=c(length(AGQvec),
-                     nvar+2,
+                     nvar+2,  ## (vars + logLik) + t.user, t.elapsed
                      nsumcol))
     for(j in seq_along(AGQvec)) {
         if (verbose) cat(j,AGQvec[j],"\n")
@@ -200,7 +202,7 @@ fit_gen <- function(data,formula,family,
             st <- system.time(fit1 <-
                 try(glmer(formula,
                           family= family, data = data,
-                          nAGQ = AGQvec[j])))
+                          nAGQ = AGQvec[j]),silent=TRUE))
             fit1@call$family <- family  ## hack (see above)
             fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
             fit1@call$data <- data
@@ -210,14 +212,15 @@ fit_gen <- function(data,formula,family,
                            family= family, data = data,
                            cluster=eval(parse(text=
                                                   paste0("data$",as.name(cluster)))), 
-                           method="ghq" ,n.points = AGQvec[j])))
+                           method="ghq" ,n.points = AGQvec[j]),silent=TRUE))
         } else  {
             if (AGQvec[j]>0) stop("shouldn't be trying glmmPQL with AGQ>0")
             st <- system.time(fit1 <-
                 try(glmmPQL(formula,
                             family=family,
                             data=data,
-                            random=as.formula(paste("~1|",as.name(cluster))))))
+                            random=as.formula(paste("~1|",as.name(cluster))),
+                            verbose=FALSE),silent=TRUE))
         }
 
         ## slightly hacky way to avoid NA Hessian issues
