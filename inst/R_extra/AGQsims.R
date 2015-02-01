@@ -1,4 +1,7 @@
 library("agqsims")
+
+## glmmPQL fits
+
 f0 <- fit_gen(data=simfun_culc(n.ttt=2,beta=c(0,2)),
               formula= y~ttt,
               family="binomial",
@@ -23,6 +26,7 @@ dimnames(sim_culcita_pql) <- list(
     sim=1:nsims,AGQ=AGQvec,var=dimnames(f0)[["var"]],
     type=dimnames(f0)[["type"]])
 beta <- c(0,2)
+i <- 1; j <- 10; k <- 47
 
 for (i in seq_along(nrepvec) ) {
     nrep <- nrepvec[i]
@@ -47,6 +51,7 @@ for (i in seq_along(nrepvec) ) {
     }
 }
 
+## lme4 fits (default)
 f0 <- fit_gen(data=simfun_culc(n.ttt=2,beta=c(0,2)),
               formula= y~ttt+(1|block),
               family="binomial",
@@ -68,6 +73,8 @@ dimnames(sim_culcita_lme4) <- list(
     sim=1:nsims,AGQ=AGQvec,var=dimnames(f0)[["var"]],
     type=dimnames(f0)[["type"]])
 beta <- c(0,2)
+## potentially bad case ...
+## i <- 1; j <- 11; k<- 79
 for (i in seq_along(nrepvec) ) {
     nrep <- nrepvec[i]
     for (j in seq_along(thetavec)) {

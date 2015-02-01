@@ -203,9 +203,11 @@ fit_gen <- function(data,formula,family,
                 try(glmer(formula,
                           family= family, data = data,
                           nAGQ = AGQvec[j]),silent=TRUE))
-            fit1@call$family <- family  ## hack (see above)
-            fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
-            fit1@call$data <- data
+            if (!is(fit1,"try-error")) {
+                fit1@call$family <- family  ## hack (see above)
+                fit1@call$nAGQ <- AGQvec[j]  ## hack (see above)
+                fit1@call$data <- data
+            }
         } else if (pkg=="glmmML"){
             st <- system.time(fit1 <-
                 try(glmmML(formula,
