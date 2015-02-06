@@ -26,7 +26,7 @@ dimnames(sim_culcita_pql) <- list(
     sim=1:nsims,AGQ=AGQvec,var=dimnames(f0)[["var"]],
     type=dimnames(f0)[["type"]])
 beta <- c(0,2)
-i <- 1; j <- 10; k <- 47
+## i <- 1; j <- 10; k <- 47
 
 for (i in seq_along(nrepvec) ) {
     nrep <- nrepvec[i]
@@ -57,8 +57,8 @@ f0 <- fit_gen(data=simfun_culc(n.ttt=2,beta=c(0,2)),
               family="binomial",
               maxAGQ=1,truevals=c(0,2,3.5))
 AGQvec <-c(1,2,3,5,8,10,15,20,25,75,100)
-nsims <- 2
-nrepvec<- c(3,4,5,6,7,8,9,10,11,12,17,25,35,50,70,100,150,200)
+nsims <- 250
+nrepvec <- c(3,4,5,6,7,8,9,10,11,12,17,25,35,50,70,100,150,200)
 thetavec <- 10^seq(-1,1,length=11)
 dims <- c(nrep=length(nrepvec),
           theta=length(thetavec),
@@ -75,12 +75,14 @@ dimnames(sim_culcita_lme4) <- list(
 beta <- c(0,2)
 ## potentially bad case ...
 ## i <- 1; j <- 11; k<- 79
+it <- 0
 for (i in seq_along(nrepvec) ) {
     nrep <- nrepvec[i]
     for (j in seq_along(thetavec)) {
         theta <- thetavec[j]
         for (k in 1:nsims) {
-            cat(i,j,k,"\n")
+            it <- it+1
+            cat(i,j,k,it,"\n")
             set.seed(1000+k)
             sim_culcita_lme4[i,j,k,,,] <-
                 fit_gen(data=simfun_culc(n.ttt=2,
@@ -92,8 +94,11 @@ for (i in seq_along(nrepvec) ) {
                         family="binomial",
                         AGQvec=AGQvec,
                         truevals=c(beta,theta))
-        }
-    }
-}
+            if (k %% 20 == 0)
+                save("sim_culcita_lme4",file="sim_out.RData") ## checkpoint
 
+        }  ## loop over nsims
+    } ## loop over theta
+} ## loop over nreps
+save("sim_culcita_lme4",file="sim_out.RData")
 
